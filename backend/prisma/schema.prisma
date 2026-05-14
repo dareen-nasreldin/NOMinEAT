@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  memberships  GroupMember[]
+  votes        Vote[]
+}
+
+model Group {
+  id         String          @id @default(uuid())
+  name       String
+  inviteCode String          @unique
+  createdAt  DateTime        @default(now())
+  members    GroupMember[]
+  sessions   VotingSession[]
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  userId   String
+  groupId  String
+  role     String   // "ADMIN" or "MEMBER"
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id])
+  group    Group    @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+model VotingSession {
+  id        String    @id @default(uuid())
+  groupId   String
+  title     String
+  status    String    // "ACTIVE" or "CLOSED"
+  createdAt DateTime  @default(now())
+  group     Group     @relation(fields: [groupId], references: [id])
+  options   Option[]
+  votes     Vote[]
+}
+
+model Option {
+  id         String        @id @default(uuid())
+  sessionId  String
+  name       String
+  type       String        // "RESTAURANT", "GENRE", or "LOCATION"
+  proposedBy String        // userId
+  session    VotingSession @relation(fields: [sessionId], references: [id])
+  votes      Vote[]
+}
+
+model Vote {
+  id        String        @id @default(uuid())
+  sessionId String
+  optionId  String
+  userId    String
+  value     Int           // 1 for upvote, -1 for downvote
+  user      User          @relation(fields: [userId], references: [id])
+  session   VotingSession @relation(fields: [sessionId], references: [id])
+  option    Option        @relation(fields: [optionId], references: [id])
+
+  @@unique([userId, sessionId, optionId])
+}
