@@ -38,3 +38,13 @@ Thumbs.db
 *.sln
 
 /generated/prisma
+
+# ── Prisma generated client ───────────────────────────────────
+backend/src/generated/
+
+# ── Claude Code ───────────────────────────────────────────────
+.claude/
+
+# ── Skills ────────────────────────────────────────────────────
+skills-lock.json
+backend/skills-lock.json
