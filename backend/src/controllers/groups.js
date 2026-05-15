@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export const createGroup = async (req, res) => {
   const { name } = req.body;

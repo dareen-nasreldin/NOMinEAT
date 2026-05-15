@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
+import prisma from './lib/prisma.js';
 import authRoutes from './routes/authRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import votingRoutes from './routes/votingRoutes.js';
@@ -10,20 +12,29 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }));
-
 app.use(express.json());
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', app: 'NOMinEat API' });
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', app: 'NOMinEat API', db: 'connected' });
+  } catch {
+    res.status(503).json({ status: 'error', app: 'NOMinEat API', db: 'unreachable' });
+  }
 });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/voting', votingRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

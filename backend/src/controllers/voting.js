@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 const requireGroupMembership = async (userId, groupId) => {
   const membership = await prisma.groupMember.findUnique({
