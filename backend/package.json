@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio"
@@ -21,9 +23,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "nanoid": "^5.0.7",
-    "pg": "^8.20.0"
-  },
-  "devDependencies": {
+    "pg": "^8.20.0",
     "prisma": "^7.8.0"
   }
 }
