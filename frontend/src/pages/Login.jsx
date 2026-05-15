@@ -28,7 +28,11 @@ const Login = () => {
       }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      if (!err.response) {
+        setError('Cannot reach the server — please check your connection and try again');
+      } else {
+        setError(err.response.data?.error || 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }

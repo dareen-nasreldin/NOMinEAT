@@ -22,8 +22,11 @@ export const createSession = async (req, res) => {
     }
 
     const session = await prisma.votingSession.create({
-      data: { groupId, title: title.trim(), status: 'ACTIVE' },
-      include: { options: true },
+      data: { groupId, title: title.trim(), status: 'ACTIVE', hostId: req.user.userId },
+      include: {
+        options: true,
+        host: { select: { id: true, username: true } },
+      },
     });
 
     res.status(201).json({ session });
@@ -41,11 +44,10 @@ export const getSession = async (req, res) => {
       where: { id: sessionId },
       include: {
         options: {
-          include: {
-            votes: true,
-          },
+          include: { votes: true },
         },
         group: { select: { id: true, name: true } },
+        host: { select: { id: true, username: true } },
       },
     });
 
@@ -176,9 +178,16 @@ export const closeSession = async (req, res) => {
       return res.status(400).json({ error: 'Session is already closed' });
     }
 
-    const membership = await requireGroupMembership(req.user.userId, session.groupId);
-    if (!membership || membership.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Only group admins can close a session' });
+    if (session.hostId) {
+      if (session.hostId !== req.user.userId) {
+        return res.status(403).json({ error: 'Only the session host can end this session' });
+      }
+    } else {
+      // backward-compat: sessions created before hostId was added fall back to admin check
+      const membership = await requireGroupMembership(req.user.userId, session.groupId);
+      if (!membership || membership.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Only the session host can end this session' });
+      }
     }
 
     const closed = await prisma.votingSession.update({

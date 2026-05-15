@@ -4,99 +4,108 @@ You are an expert full-stack developer. I am building a responsive web applicati
 
 The application must be built as a mobile-first responsive website now, with the strict architectural intention of building a React Native mobile app in the future that will consume the exact same backend API.
 
-1. Branding & UI Terminology (CRITICAL)
+---
+
+## 1. Branding & UI Terminology (CRITICAL)
 
 When generating frontend code (React components, buttons, headers), use this specific terminology to fit the playful brand:
 
-App Name: NOMinEat
-
-Adding a Restaurant/Option: "NOMinate a spot" or "NOMinate"
-
-The Options/Restaurants: "The NOMinees"
-
-Voting: "Cast your vote"
-
-The Winner: "Top NOM" or "Winner!"
+- App Name: **NOMinEat**
+- Adding a Restaurant/Option: **"NOMinate a spot"** or **"NOMinate"**
+- The Options/Restaurants: **"The NOMinees"**
+- Voting: **"Cast your vote"**
+- The Winner: **"Top NOM"** or **"Winner!"**
+- Session host: **"Host"** with a 👑 badge
+- Ending a session: **"End Session"** (not "Close")
 
 Tone: Fun, playful, modern, and energetic.
 
-2. Technology Stack
+---
 
-Frontend: React.js (Vite) with Tailwind CSS. Must be highly responsive and mimic mobile app UI on smaller screens (bottom navigation, touch-friendly targets).
+## 2. Technology Stack
 
-Backend: Node.js with Express.js. Must be a pure RESTful API returning JSON.
+- **Frontend:** React.js (Vite) with Tailwind CSS. Mobile-first responsive UI, touch-friendly targets.
+- **Backend:** Node.js with Express.js. Pure RESTful API returning JSON.
+- **Database:** PostgreSQL via Supabase.
+- **ORM:** Prisma 7 with `@prisma/adapter-pg` driver adapter.
+- **Auth:** JWT (jsonwebtoken + bcrypt). JWT payload: `{ userId, username }`.
+- **Deployment:** Vercel `experimentalServices` — frontend at `/`, backend at `/_/backend`.
 
-Database: PostgreSQL.
+---
 
-ORM: Prisma (for type safety and easy schema management).
+## 3. Core Feature Requirements (Shipped)
 
-3. Core Feature Requirements (Phase 1: MVP)
+**Authentication:** Users sign up and log in. Errors are specific ("No account found with that email" / "Incorrect password").
 
-Authentication: Users can sign up and log in securely.
+**Group Management:** Users create groups with a unique invite code. Others join via the code.
 
-Group Management: Users can create groups and generate a unique invite code. Other users can join the group using this code.
+**Voting Sessions:** Any group member starts a session. The creator is saved as the **host** (`hostId`).
 
-Voting Sessions: Any group member can initiate a voting session (e.g., "Friday Lunch").
+**NOMinees:** Members NOMinate options (RESTAURANT, GENRE, or LOCATION).
 
-Proposals (NOMinees): Members can NOMinate options to an active session. Options can be specific restaurants, general genres (e.g., "Mexican"), or locations.
+**Voting:** Members cast 👍 (+2 pts) or 👎 (−4 pts). Value `0` un-votes (FSM toggle). Any member can vote.
 
-Voting: Members cast a 👍 or 👎 on each NOM. Weighted scoring: 👍 = +2 points, 👎 = −4 points. Tapping the active button again sends value 0 to un-vote (FSM toggle). Any member can vote; only group admins can close a session.
+**Ending Sessions:** Only the session **host** can end a session. Backend checks `session.hostId === req.user.userId`.
 
-Results: Closing a session reveals the winner (highest weighted score) in a 🏆 Top NOM banner, with all options sorted by final score.
+**Results:** Ending reveals the 🏆 Top NOM winner banner + all NOMinees sorted by score with `+X` / `-X` displayed. All clients auto-update within 3 seconds via polling.
 
-4. Database Schema (Prisma / PostgreSQL)
+---
 
-Here is the strict relational schema you must follow.
+## 4. Database Schema (Current — Prisma / PostgreSQL)
 
+```prisma
 model User {
-  id            String         @id @default(uuid())
-  username      String         @unique
-  email         String         @unique
-  passwordHash  String
-  createdAt     DateTime       @default(now())
-  memberships   GroupMember[]
-  votes         Vote[]
+  id             String          @id @default(uuid())
+  username       String          @unique
+  email          String          @unique
+  passwordHash   String
+  createdAt      DateTime        @default(now())
+  memberships    GroupMember[]
+  votes          Vote[]
+  hostedSessions VotingSession[] @relation("SessionHost")
 }
 
 model Group {
-  id          String         @id @default(uuid())
-  name        String
-  inviteCode  String         @unique
-  createdAt   DateTime       @default(now())
-  members     GroupMember[]
-  sessions    VotingSession[]
+  id         String          @id @default(uuid())
+  name       String
+  inviteCode String          @unique
+  createdAt  DateTime        @default(now())
+  members    GroupMember[]
+  sessions   VotingSession[]
 }
 
 model GroupMember {
-  id        String   @id @default(uuid())
-  userId    String
-  groupId   String
-  role      String   // "ADMIN" or "MEMBER"
-  joinedAt  DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  group     Group    @relation(fields: [groupId], references: [id])
+  id       String   @id @default(uuid())
+  userId   String
+  groupId  String
+  role     String   // "ADMIN" or "MEMBER"
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id])
+  group    Group    @relation(fields: [groupId], references: [id])
   @@unique([userId, groupId])
 }
 
 model VotingSession {
   id        String    @id @default(uuid())
   groupId   String
+  hostId    String?
   title     String
   status    String    // "ACTIVE" or "CLOSED"
   createdAt DateTime  @default(now())
   group     Group     @relation(fields: [groupId], references: [id])
+  host      User?     @relation("SessionHost", fields: [hostId], references: [id])
   options   Option[]
   votes     Vote[]
 }
 
 model Option {
-  id          String        @id @default(uuid())
-  sessionId   String
-  name        String
-  type        String        // "RESTAURANT", "GENRE", or "LOCATION"
-  proposedBy  String        // userId
-  session     VotingSession @relation(fields: [sessionId], references: [id])
-  votes       Vote[]
+  id         String        @id @default(uuid())
+  sessionId  String
+  name       String
+  type       String        // "RESTAURANT", "GENRE", or "LOCATION"
+  proposedBy String        // userId
+  session    VotingSession @relation(fields: [sessionId], references: [id])
+  votes      Vote[]
 }
 
 model Vote {
@@ -108,15 +117,19 @@ model Vote {
   user      User          @relation(fields: [userId], references: [id])
   session   VotingSession @relation(fields: [sessionId], references: [id])
   option    Option        @relation(fields: [optionId], references: [id])
-  @@unique([userId, sessionId, optionId]) // Prevent multiple votes on same option
+  @@unique([userId, sessionId, optionId])
 }
+```
 
+---
 
-5. File Structure (as built)
+## 5. File Structure
 
+```
 /backend
   /prisma
     schema.prisma
+    /migrations
   /src
     /controllers    (auth.js, groups.js, voting.js)
     /routes         (authRoutes.js, groupRoutes.js, votingRoutes.js)
@@ -137,25 +150,62 @@ model Vote {
   index.html
   tailwind.config.js
   package.json
+```
 
+---
 
-6. Execution Instructions for Claude
+## 6. Execution Instructions
 
-Do not waste tokens on Git initialization or environment setup explanations. Assume the environment is ready.
+- Provide fully complete files without placeholders or "left as an exercise" comments.
+- Always implement robust error handling in API routes.
+- Do not waste tokens on environment setup explanations.
 
-Provide fully complete files without placeholders or "left as an exercise" comments.
+---
 
-Always implement robust error handling in the API routes.
+## 7. Established Patterns (always follow these)
 
+**Prisma:** Import the singleton from `backend/src/lib/prisma.js`. Never call `new PrismaClient()` directly — Prisma 7 requires the `@prisma/adapter-pg` driver adapter.
 
-7. Established Patterns (always follow these)
+**Validation:** Define `express-validator` rule arrays in the route file, then pass them into the shared `backend/src/middleware/validate.js`. Never duplicate validation logic in controllers.
 
-- Prisma: import the singleton from `backend/src/lib/prisma.js`. Never call `new PrismaClient()` directly — Prisma 7 requires the `@prisma/adapter-pg` driver adapter which is set up in the singleton.
+**Auth middleware:** Attach `authMiddleware` at the router level (`router.use(authMiddleware)`) for any protected route group. JWT payload key is `userId` — use `req.user.userId` in controllers.
 
-- Validation: define `express-validator` rule arrays in the route file, then pass them into the shared `backend/src/middleware/validate.js` middleware. Never duplicate validation logic in controllers.
+**Optimistic UI:** Update local React state immediately before the API call, reconcile with a re-fetch after, revert on error.
 
-- Auth: attach `authMiddleware` at the router level (`router.use(authMiddleware)`) for any protected route group.
+**API calls:** All frontend API calls go through `frontend/src/api/axiosClient.js`. Never import axios directly in pages or components.
 
-- Optimistic UI: when a user action should feel instant, update local React state immediately before the API call, then reconcile with a re-fetch after the call resolves. Revert on error.
+**401 interceptor:** The Axios interceptor skips redirect for `/auth/` endpoints — failed logins must show an error message, not bounce the user back to `/login`.
 
-- All frontend API calls go through `frontend/src/api/axiosClient.js`. Never import axios directly in pages or components.
+**API base URL:** `axiosClient.js` resolves to `/_/backend/api` in Vite production builds and `http://localhost:3001/api` in dev. Never hardcode a hostname.
+
+**Polling for real-time:** While a session is ACTIVE, poll `GET /voting/sessions/:sessionId` every 3 seconds so all clients detect session close automatically. Clear the interval when status becomes `CLOSED` or the component unmounts.
+
+**Host check:** `closeSession` verifies `session.hostId === req.user.userId`. Sessions with `hostId = null` (created before the feature) fall back to admin check for backward compat.
+
+---
+
+## 8. Git Commit Convention (Conventional Commits)
+
+All commits must follow: `type(scope): short summary`
+
+| Type | Use for |
+|---|---|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `chore` | Deps, config, tooling |
+| `refactor` | Restructure, no behavior change |
+| `style` | Formatting only |
+| `docs` | Documentation |
+| `test` | Tests |
+| `perf` | Performance |
+| `ci` | CI/CD |
+
+Rules: imperative mood, 72-char subject limit, no period, no emoji in subject.
+
+Examples:
+```
+feat(voting): add host ownership and end-session sync
+fix(auth): prevent 401 redirect loop on failed login
+chore(deps): upgrade prisma to v7.8
+docs: update roadmap and readme for Phase 6 completion
+```

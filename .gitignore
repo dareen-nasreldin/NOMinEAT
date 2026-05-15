@@ -7,9 +7,13 @@ node_modules/
 .env.local
 .env.*.local
 backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # ── Backend build / Prisma ────────────────────────────────────
 backend/dist/
+schema.sql
 
 # ── Frontend build (Vite) ─────────────────────────────────────
 frontend/dist/
@@ -48,3 +52,4 @@ backend/src/generated/
 # ── Skills ────────────────────────────────────────────────────
 skills-lock.json
 backend/skills-lock.json
+.vercel

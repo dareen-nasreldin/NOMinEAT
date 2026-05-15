@@ -1,8 +1,10 @@
 # NOMinEAT
 
-NOMinEAT solves the "where should we eat?" dilemma for groups. Members NOMinate restaurants, genres, or locations, cast weighted 👍👎 votes, and the group's Top NOM is revealed when the session closes.
+NOMinEAT solves the "where should we eat?" dilemma for groups. Members NOMinate restaurants, genres, or locations, cast weighted 👍👎 votes, and the group's Top NOM is revealed when the session host ends it.
 
 Built as a mobile-first web app with a clean API boundary — the same backend is designed to power a React Native mobile app in the future.
+
+**Live:** [nomineat.vercel.app](https://nomineat.vercel.app)
 
 ---
 
@@ -15,6 +17,7 @@ Built as a mobile-first web app with a clean API boundary — the same backend i
 | ORM | Prisma 7 (client engine + pg driver adapter) |
 | Database | PostgreSQL via Supabase |
 | Auth | JWT (jsonwebtoken + bcrypt) |
+| Deployment | Vercel (frontend + backend via `experimentalServices`) |
 
 ---
 
@@ -106,6 +109,30 @@ App available at `http://localhost:5173`.
 
 ---
 
+## Deploying to Vercel
+
+This project uses Vercel's `experimentalServices` to deploy both frontend and backend from a single repo.
+
+```bash
+npx vercel        # preview deployment
+npx vercel --prod # production deployment
+```
+
+**Required Vercel environment variables:**
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Supabase pooled URL (port 6543) |
+| `DIRECT_URL` | Supabase direct URL (port 5432) |
+| `JWT_SECRET` | Long random string |
+| `JWT_EXPIRES_IN` | `7d` |
+| `FRONTEND_URL` | Your Vercel production URL |
+| `NODE_ENV` | `production` |
+
+> `VITE_API_URL` does **not** need to be set — the frontend auto-resolves to `/_/backend/api` in production builds.
+
+---
+
 ## Environment Variables Reference
 
 | Variable | Required | Description |
@@ -134,11 +161,11 @@ All routes are prefixed with `/api`.
 | GET | `/groups` | Yes | List my groups |
 | GET | `/groups/:id` | Yes | Group detail + members + sessions |
 | POST | `/groups/join` | Yes | Join via invite code |
-| POST | `/voting/groups/:groupId/sessions` | Yes | Start voting session |
-| GET | `/voting/sessions/:sessionId` | Yes | Session detail + votes |
+| POST | `/voting/groups/:groupId/sessions` | Yes | Start voting session (caller becomes host) |
+| GET | `/voting/sessions/:sessionId` | Yes | Session detail + votes + host info |
 | POST | `/voting/sessions/:sessionId/nominate` | Yes | Add a NOM |
 | POST | `/voting/sessions/:sessionId/options/:optionId/vote` | Yes | Cast / update / remove vote |
-| PATCH | `/voting/sessions/:sessionId/close` | Yes (admin) | Close session, reveal winner |
+| PATCH | `/voting/sessions/:sessionId/close` | Yes (host only) | End session, reveal winner + scores |
 
 ---
 
@@ -147,3 +174,4 @@ All routes are prefixed with `/api`.
 - `backend/.env` is git-ignored. Document new variables in `backend/.env.example`.
 - `node_modules/` is git-ignored in both `backend/` and `frontend/`. Run `npm install` to restore.
 - Prisma 7 requires `@prisma/adapter-pg` — `new PrismaClient()` with no adapter throws at startup. Always use the singleton in `backend/src/lib/prisma.js`.
+- The 401 Axios interceptor skips auth endpoints (`/auth/*`) intentionally — failed logins must show error messages, not redirect.

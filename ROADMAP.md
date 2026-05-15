@@ -1,7 +1,7 @@
 # NOMinEAT — Development Roadmap
 
 ## Current Status
-Full-stack MVP is feature-complete and running locally. All 4 pages are built and wired to the live Supabase backend. Ready for deployment.
+Full-stack MVP is deployed and live at [nomineat.vercel.app](https://nomineat.vercel.app). Session host ownership, real-time end-session sync, and a scored results leaderboard are all shipped.
 
 ---
 
@@ -44,14 +44,13 @@ Full-stack MVP is feature-complete and running locally. All 4 pages are built an
   - [x] 👍👎 buttons with FSM toggle (tap again to un-vote), optimistic UI (instant color flip)
   - [x] Asymmetric weighting: 👍 = +2, 👎 = −4
   - [x] "NOMinate a spot" form with RESTAURANT / GENRE / LOCATION type selector
-  - [x] Close Session button (admin only)
-  - [x] 🏆 Top NOM winner banner on close, results sorted by final score
+  - [x] 🏆 Top NOM winner banner on close, results sorted by final score with per-option scores
 
 ---
 
 ## Phase 4: Connect Frontend to Backend (Complete)
 
-- [x] `axiosClient.js` points at `http://localhost:3001/api`
+- [x] `axiosClient.js` points at `http://localhost:3001/api` locally, `/_/backend/api` in production
 - [x] `AuthContext` login/register wired to `POST /api/auth/*`
 - [x] Dashboard fetches from `GET /api/groups`
 - [x] Group View fetches from `GET /api/groups/:groupId`
@@ -60,32 +59,41 @@ Full-stack MVP is feature-complete and running locally. All 4 pages are built an
 
 ---
 
-## Phase 5: Deployment ← Next
+## Phase 5: Deployment (Complete)
 
-- [ ] **Backend → Railway** (preferred) or Render free tier
-  - Set env vars: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `FRONTEND_URL`, `NODE_ENV=production`
-  - Start command: `node src/server.js`
-  - Root directory: `backend/`
-- [ ] **Frontend → Vercel**
-  - Add env var: `VITE_API_URL` = deployed backend URL
-  - Update `axiosClient.js` baseURL to `import.meta.env.VITE_API_URL`
-  - Root directory: `frontend/`
-- [ ] Update `FRONTEND_URL` backend env var to the deployed Vercel URL (for CORS)
+- [x] Deployed to Vercel via `experimentalServices` (frontend + backend on same domain)
+  - Frontend served at `/`, backend served at `/_/backend`
+  - `VITE_API_URL` auto-resolves to `/_/backend/api` in production builds — no env var needed
+- [x] All required env vars configured in Vercel (DATABASE_URL, JWT_SECRET, FRONTEND_URL, etc.)
+- [x] Production URL: [nomineat.vercel.app](https://nomineat.vercel.app)
 
 ---
 
-## Phase 6: Polish & Real-time
+## Phase 6: Session Host & Real-Time Sync (Complete)
 
-- [ ] **Live vote updates** — Supabase Realtime subscription so all users see votes change without refreshing
-- [ ] **Profile page** (`/profile`) — show username, account info, logout button
-- [ ] **Session history** — list past closed sessions on Group View with their winners
-- [ ] **Toast notifications** — replace inline error text with toast banners
-- [ ] **UX guard** — prevent closing a session with 0 nominees
-- [ ] **Creator-only close** — restrict Close button to the session creator, not all group admins
+- [x] **Host ownership** — `hostId` added to `VotingSession`; session creator is saved as host
+- [x] **Host badge** — 👑 username shown in the voting room header for all participants
+- [x] **End Session restricted to host** — "End Session" button only visible to the host; backend verifies `hostId === req.user.userId`
+- [x] **Real-time end-session sync** — 3-second polling while session is ACTIVE; all clients auto-transition to results when host ends the session
+- [x] **Scored leaderboard** — closed view shows `+X` / `-X` scores and `#rank` for every NOM
+- [x] **"— Final Results —"** section header on session close
+- [x] **Descriptive login errors** — "No account found with that email" / "Incorrect password" instead of generic message
+- [x] **Fix login redirect loop** — 401 interceptor now skips `/auth/*` endpoints so failed logins display the error
 
 ---
 
-## Phase 7: React Native Mobile App
+## Phase 7: Polish & Real-time (Next)
+
+- [ ] **Full Supabase Realtime** — replace polling with a Supabase channel subscription so live vote counts update instantly for all users without page refreshes
+- [ ] **Toast notifications** — replace inline error text with dismissible toast banners
+- [ ] **Profile page** (`/profile`) — show username, email, account info, logout button
+- [ ] **Session history** — list past closed sessions on Group View with their Top NOM winners
+- [ ] **Guard: empty session** — prevent ending a session with 0 nominees
+- [ ] **Drag-to-reorder NOMinees** — let users manually reorder their ballot before voting ends
+
+---
+
+## Phase 8: React Native Mobile App
 
 - Same Express API — zero backend changes needed
 - `react-navigation` for bottom tab navigation
@@ -101,3 +109,4 @@ Full-stack MVP is feature-complete and running locally. All 4 pages are built an
 - **DATABASE_URL**: Uses port `6543` (PgBouncer pooler) with `?pgbouncer=true` — for runtime queries.
 - **DIRECT_URL**: Uses port `5432` (direct connection) — only needed for schema migrations.
 - **Vote value `0`**: Sending `{ value: 0 }` to the vote endpoint deletes the user's vote (un-vote). The DB only stores `1` or `-1`.
+- **hostId nullable**: Existing sessions created before the host feature have `hostId = null`; the close route falls back to admin check for those.

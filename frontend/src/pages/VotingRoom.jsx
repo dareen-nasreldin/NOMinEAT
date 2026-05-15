@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -10,20 +11,20 @@ const TYPE_LABELS = { RESTAURANT: '🍽️', GENRE: '🌮', LOCATION: '📍' };
 // FSM: toggling the same value un-votes (returns 0); switching flips the vote.
 const nextVote = (current, target) => (current === target ? 0 : target);
 
-// Sort by user's own vote during active session: upvoted first, neutral middle, downvoted last.
 const sortByMyVote = (options) =>
   [...options].sort((a, b) => (b.myVote ?? 0) - (a.myVote ?? 0));
 
-// Sort by weighted score for the closed results view.
 const sortByScore = (options) =>
   [...options].sort((a, b) => b.score - a.score);
 
-const OptionCard = ({ opt, isActive, isWinner, voteLoading, onVote }) => (
+const OptionCard = ({ opt, isActive, isWinner, rank, voteLoading, onVote }) => (
   <Card>
     <div className="flex items-center gap-3">
-      {isWinner && (
+      {isWinner ? (
         <span className="text-base w-7 text-center shrink-0">🏆</span>
-      )}
+      ) : !isActive ? (
+        <span className="text-sm font-bold text-gray-300 w-7 text-center shrink-0">#{rank}</span>
+      ) : null}
 
       <div className="flex-1 min-w-0">
         <p className="font-bold text-gray-900 truncate">{opt.name}</p>
@@ -58,6 +59,12 @@ const OptionCard = ({ opt, isActive, isWinner, voteLoading, onVote }) => (
           </button>
         </div>
       )}
+
+      {!isActive && (
+        <span className={`text-sm font-bold shrink-0 tabular-nums ${opt.score >= 0 ? 'text-nom-500' : 'text-red-400'}`}>
+          {opt.score > 0 ? '+' : ''}{opt.score}
+        </span>
+      )}
     </div>
   </Card>
 );
@@ -65,6 +72,7 @@ const OptionCard = ({ opt, isActive, isWinner, voteLoading, onVote }) => (
 const VotingRoom = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [session, setSession] = useState(null);
   const [orderedOptions, setOrderedOptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,13 +83,15 @@ const VotingRoom = () => {
   const [closing, setClosing] = useState(false);
   const [voteLoading, setVoteLoading] = useState({});
 
-  const fetchSession = async () => {
-    const res = await api.get(`/voting/sessions/${sessionId}`);
-    const data = res.data.session;
+  const applySession = (data) => {
     setSession(data);
     const incoming = data.options || [];
-    const sorted = data.status === 'CLOSED' ? sortByScore(incoming) : sortByMyVote(incoming);
-    setOrderedOptions(sorted);
+    setOrderedOptions(data.status === 'CLOSED' ? sortByScore(incoming) : sortByMyVote(incoming));
+  };
+
+  const fetchSession = async () => {
+    const res = await api.get(`/voting/sessions/${sessionId}`);
+    applySession(res.data.session);
   };
 
   useEffect(() => {
@@ -89,6 +99,21 @@ const VotingRoom = () => {
       .catch(() => setError('Could not load session'))
       .finally(() => setLoading(false));
   }, [sessionId]);
+
+  // Poll every 3 s while ACTIVE so all clients instantly see when the host ends the session.
+  useEffect(() => {
+    if (!session || session.status !== 'ACTIVE') return;
+    const id = setInterval(async () => {
+      try {
+        const res = await api.get(`/voting/sessions/${sessionId}`);
+        const data = res.data.session;
+        setSession(data);
+        const incoming = data.options || [];
+        setOrderedOptions(data.status === 'CLOSED' ? sortByScore(incoming) : sortByMyVote(incoming));
+      } catch {}
+    }, 3000);
+    return () => clearInterval(id);
+  }, [sessionId, session?.status]);
 
   const handleVote = async (optionId, value) => {
     // Optimistic update: flip button color immediately.
@@ -129,7 +154,7 @@ const VotingRoom = () => {
       await api.patch(`/voting/sessions/${sessionId}/close`);
       await fetchSession();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to close session');
+      setError(err.response?.data?.error || 'Failed to end session');
     } finally {
       setClosing(false);
     }
@@ -152,6 +177,7 @@ const VotingRoom = () => {
   }
 
   const isActive = session.status === 'ACTIVE';
+  const isHost = user?.id === session.hostId;
   const winner = !isActive && orderedOptions[0];
 
   return (
@@ -168,20 +194,30 @@ const VotingRoom = () => {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-2xl font-extrabold text-gray-900">{session.title}</h2>
-            <span className={`text-xs font-semibold ${isActive ? 'text-nom-500' : 'text-gray-400'}`}>
-              {isActive ? '● Active' : '✓ Closed'}
-            </span>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className={`text-xs font-semibold ${isActive ? 'text-nom-500' : 'text-gray-400'}`}>
+                {isActive ? '● Active' : '✓ Closed'}
+              </span>
+              {session.host && (
+                <span className="text-xs text-gray-400">
+                  · 👑 {session.host.username}{isHost ? ' (you)' : ''}
+                </span>
+              )}
+            </div>
           </div>
-          {isActive && (
-            <div className="flex gap-2">
+
+          <div className="flex gap-2 shrink-0">
+            {isActive && (
               <Button size="sm" onClick={() => { setShowNomForm(true); setError(''); }}>
                 + NOMinate
               </Button>
+            )}
+            {isActive && isHost && (
               <Button variant="danger" size="sm" loading={closing} onClick={handleCloseSession}>
-                Close
+                End Session
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {error && (
@@ -223,6 +259,12 @@ const VotingRoom = () => {
           </Card>
         )}
 
+        {!isActive && (
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mb-4">
+            — Final Results —
+          </p>
+        )}
+
         {winner && (
           <Card className="mb-6 bg-gradient-to-r from-nom-500 to-orange-400 border-0 text-white">
             <p className="text-xs font-bold uppercase tracking-widest mb-1 opacity-80">🏆 Top NOM — Winner!</p>
@@ -253,6 +295,7 @@ const VotingRoom = () => {
                 opt={opt}
                 isActive={isActive}
                 isWinner={!isActive && idx === 0}
+                rank={idx + 1}
                 voteLoading={voteLoading}
                 onVote={handleVote}
               />
