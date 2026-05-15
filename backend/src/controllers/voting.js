@@ -118,10 +118,6 @@ export const castVote = async (req, res) => {
   const { sessionId, optionId } = req.params;
   const { value } = req.body;
 
-  if (value !== 1 && value !== -1) {
-    return res.status(400).json({ error: 'value must be 1 (upvote) or -1 (downvote)' });
-  }
-
   try {
     const session = await prisma.votingSession.findUnique({ where: { id: sessionId } });
 
@@ -140,6 +136,13 @@ export const castVote = async (req, res) => {
     const option = await prisma.option.findUnique({ where: { id: optionId } });
     if (!option || option.sessionId !== sessionId) {
       return res.status(404).json({ error: 'Option not found in this session' });
+    }
+
+    if (value === 0) {
+      await prisma.vote.deleteMany({
+        where: { userId: req.user.userId, sessionId, optionId },
+      });
+      return res.json({ vote: null });
     }
 
     const vote = await prisma.vote.upsert({

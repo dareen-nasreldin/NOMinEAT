@@ -36,7 +36,7 @@ router.post(
 
 router.post(
   '/sessions/:sessionId/options/:optionId/vote',
-  [body('value').isIn([1, -1]).withMessage('value must be 1 (upvote) or -1 (downvote)')],
+  [body('value').custom((v) => [1, 0, -1].includes(Number(v))).withMessage('value must be 1, 0 (remove), or -1')],
   validate,
   castVote
 );
