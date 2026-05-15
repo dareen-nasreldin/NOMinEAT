@@ -40,9 +40,9 @@ Voting Sessions: Any group member can initiate a voting session (e.g., "Friday L
 
 Proposals (NOMinees): Members can NOMinate options to an active session. Options can be specific restaurants, general genres (e.g., "Mexican"), or locations.
 
-Voting: Members can upvote or downvote the NOMinees.
+Voting: Members cast a 👍 or 👎 on each NOM. Weighted scoring: 👍 = +2 points, 👎 = −4 points. Tapping the active button again sends value 0 to un-vote (FSM toggle). Any member can vote; only group admins can close a session.
 
-Results: The session can be closed by the creator, displaying the winning option based on vote tallies.
+Results: Closing a session reveals the winner (highest weighted score) in a 🏆 Top NOM banner, with all options sorted by final score.
 
 4. Database Schema (Prisma / PostgreSQL)
 
@@ -112,9 +112,7 @@ model Vote {
 }
 
 
-5. Required File Structure
-
-Generate code to match this exact decoupled structure:
+5. File Structure (as built)
 
 /backend
   /prisma
@@ -122,7 +120,8 @@ Generate code to match this exact decoupled structure:
   /src
     /controllers    (auth.js, groups.js, voting.js)
     /routes         (authRoutes.js, groupRoutes.js, votingRoutes.js)
-    /middleware     (authMiddleware.js)
+    /middleware     (authMiddleware.js, validate.js)
+    /lib            (prisma.js — singleton)
     server.js
   .env
   package.json
@@ -142,13 +141,21 @@ Generate code to match this exact decoupled structure:
 
 6. Execution Instructions for Claude
 
-Do not waste tokens on Git initialization or environment setup explanations. Assume I have my environment ready.
+Do not waste tokens on Git initialization or environment setup explanations. Assume the environment is ready.
 
-Do not generate the entire project at once.
-
-When generating code, provide fully complete files without placeholders or "left as an exercise" comments.
+Provide fully complete files without placeholders or "left as an exercise" comments.
 
 Always implement robust error handling in the API routes.
 
-CURRENT TASK:
-Acknowledge these instructions. Then, begin by generating the complete /backend/prisma/schema.prisma file, followed by the /backend/src/server.js setup, and finally the /backend/src/middleware/authMiddleware.js file for JWT verification. Stop and wait for my next command after completing these three files.
+
+7. Established Patterns (always follow these)
+
+- Prisma: import the singleton from `backend/src/lib/prisma.js`. Never call `new PrismaClient()` directly — Prisma 7 requires the `@prisma/adapter-pg` driver adapter which is set up in the singleton.
+
+- Validation: define `express-validator` rule arrays in the route file, then pass them into the shared `backend/src/middleware/validate.js` middleware. Never duplicate validation logic in controllers.
+
+- Auth: attach `authMiddleware` at the router level (`router.use(authMiddleware)`) for any protected route group.
+
+- Optimistic UI: when a user action should feel instant, update local React state immediately before the API call, then reconcile with a re-fetch after the call resolves. Revert on error.
+
+- All frontend API calls go through `frontend/src/api/axiosClient.js`. Never import axios directly in pages or components.

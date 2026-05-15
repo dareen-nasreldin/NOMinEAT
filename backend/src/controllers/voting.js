@@ -60,7 +60,7 @@ export const getSession = async (req, res) => {
 
     const optionsWithTally = session.options.map((opt) => ({
       ...opt,
-      score: opt.votes.reduce((sum, v) => sum + v.value, 0),
+      score: opt.votes.reduce((sum, v) => sum + (v.value === 1 ? 2 : -4), 0),
       myVote: opt.votes.find((v) => v.userId === req.user.userId)?.value ?? null,
     }));
 
@@ -189,7 +189,7 @@ export const closeSession = async (req, res) => {
     const optionsWithScores = session.options
       .map((opt) => ({
         ...opt,
-        score: opt.votes.reduce((sum, v) => sum + v.value, 0),
+        score: opt.votes.reduce((sum, v) => sum + (v.value === 1 ? 2 : -4), 0),
       }))
       .sort((a, b) => b.score - a.score);
 
