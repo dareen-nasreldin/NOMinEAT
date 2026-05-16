@@ -35,9 +35,9 @@ Tone: Fun, playful, modern, and energetic.
 
 ## 3. Core Feature Requirements (Shipped)
 
-**Authentication:** Users sign up and log in. Errors are specific ("No account found with that email" / "Incorrect password").
+**Authentication:** Users sign up and log in. Login accepts email OR username via a single `identifier` field — controller checks for `@` to decide which field to query. Errors are specific ("No account found with that email/username" / "Incorrect password").
 
-**Group Management:** Users create groups with a unique invite code. Others join via the code.
+**Group Management:** Users create groups with a unique invite code. Others join via the code. Any member can leave via `DELETE /groups/:id/leave` (blocked if they are the last admin).
 
 **Voting Sessions:** Any group member starts a session. The creator is saved as the **host** (`hostId`).
 
@@ -48,6 +48,8 @@ Tone: Fun, playful, modern, and energetic.
 **Ending Sessions:** Only the session **host** can end a session. Backend checks `session.hostId === req.user.userId`.
 
 **Results:** Ending reveals the 🏆 Top NOM winner banner + all NOMinees sorted by score with `+X` / `-X` displayed. All clients auto-update within 3 seconds via polling.
+
+**Archive Sessions:** Group admins or the session host can archive a closed session via `DELETE /voting/sessions/:sessionId`. Archives write a `SessionHistory` summary record (winner name, score, full results JSON) then hard-delete the `Vote`, `Option`, and `VotingSession` rows to reclaim space.
 
 ---
 
@@ -66,12 +68,13 @@ model User {
 }
 
 model Group {
-  id         String          @id @default(uuid())
+  id         String           @id @default(uuid())
   name       String
-  inviteCode String          @unique
-  createdAt  DateTime        @default(now())
+  inviteCode String           @unique
+  createdAt  DateTime         @default(now())
   members    GroupMember[]
   sessions   VotingSession[]
+  histories  SessionHistory[]
 }
 
 model GroupMember {
@@ -119,6 +122,18 @@ model Vote {
   option    Option        @relation(fields: [optionId], references: [id])
   @@unique([userId, sessionId, optionId])
 }
+
+model SessionHistory {
+  id          String   @id @default(uuid())
+  groupId     String
+  originalId  String   // the VotingSession id that was archived
+  title       String
+  winnerName  String?
+  winnerScore Int      @default(0)
+  results     Json     // [{name, type, score}] sorted by score desc
+  archivedAt  DateTime @default(now())
+  group       Group    @relation(fields: [groupId], references: [id])
+}
 ```
 
 ---
@@ -141,7 +156,7 @@ model Vote {
 
 /frontend
   /src
-    /components     (Button.jsx, Card.jsx, Navbar.jsx)
+    /components     (Button.jsx, Card.jsx, Navbar.jsx, ConfirmDialog.jsx)
     /pages          (Login.jsx, Dashboard.jsx, GroupView.jsx, VotingRoom.jsx)
     /context        (AuthContext.jsx)
     /api            (axiosClient.js)
@@ -181,6 +196,14 @@ model Vote {
 **Polling for real-time:** While a session is ACTIVE, poll `GET /voting/sessions/:sessionId` every 3 seconds so all clients detect session close automatically. Clear the interval when status becomes `CLOSED` or the component unmounts.
 
 **Host check:** `closeSession` verifies `session.hostId === req.user.userId`. Sessions with `hostId = null` (created before the feature) fall back to admin check for backward compat.
+
+**Login identifier:** The login route accepts `identifier` (not `email`). The controller checks `identifier.includes('@')` to decide whether to query by `email` or `username`. The `loginRules` in `authRoutes.js` validates `identifier` as a non-empty string (no email format check).
+
+**Leave group:** `DELETE /groups/:groupId/leave` removes the caller's `GroupMember` row. Blocked with 400 if the user is the sole admin — they must promote another member first.
+
+**Archive session:** `DELETE /voting/sessions/:sessionId` — host or group admin only, session must be CLOSED. Runs a `$transaction`: creates `SessionHistory` → deletes `Vote` rows → deletes `Option` rows → deletes `VotingSession`. The `SessionHistory` record stores winner name, score, and a full `results` JSON array for display in Group View without the raw rows.
+
+**ConfirmDialog:** Reusable `frontend/src/components/ConfirmDialog.jsx` — Tailwind modal with overlay, title, description, Cancel + Confirm buttons. Accepts `danger` prop (red confirm button) and `loading` prop. Used for Leave Group and Archive Session confirmations.
 
 ---
 

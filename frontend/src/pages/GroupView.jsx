@@ -5,6 +5,7 @@ import api from '../api/axiosClient';
 import Navbar from '../components/Navbar';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const GroupView = () => {
   const { groupId } = useParams();
@@ -16,6 +17,15 @@ const GroupView = () => {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
+
+  // Leave group dialog
+  const [leaveDialog, setLeaveDialog] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
+
+  // Archive session dialog
+  const [archiveTarget, setArchiveTarget] = useState(null); // session object
+  const [archiving, setArchiving] = useState(false);
 
   useEffect(() => {
     api.get(`/groups/${groupId}`)
@@ -37,6 +47,36 @@ const GroupView = () => {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    setLeaving(true);
+    setLeaveError('');
+    try {
+      await api.delete(`/groups/${groupId}/leave`);
+      navigate('/dashboard');
+    } catch (err) {
+      setLeaveError(err.response?.data?.error || 'Failed to leave group');
+      setLeaving(false);
+    }
+  };
+
+  const handleArchiveSession = async () => {
+    if (!archiveTarget) return;
+    setArchiving(true);
+    try {
+      await api.delete(`/voting/sessions/${archiveTarget.id}`);
+      setGroup((g) => ({
+        ...g,
+        sessions: g.sessions.filter((s) => s.id !== archiveTarget.id),
+      }));
+      setArchiveTarget(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to archive session');
+      setArchiveTarget(null);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -55,6 +95,7 @@ const GroupView = () => {
     );
   }
 
+  const isAdmin = group.myRole === 'ADMIN';
   const activeSessions = group.sessions.filter((s) => s.status === 'ACTIVE');
   const closedSessions = group.sessions.filter((s) => s.status === 'CLOSED');
 
@@ -102,6 +143,7 @@ const GroupView = () => {
           </Card>
         )}
 
+        {/* Active Sessions */}
         <div className="mb-4">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
             Active Sessions ({activeSessions.length})
@@ -125,17 +167,34 @@ const GroupView = () => {
           )}
         </div>
 
+        {/* Closed Sessions (not yet archived) */}
         {closedSessions.length > 0 && (
-          <div>
+          <div className="mb-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
               Past Sessions
             </h3>
             <div className="space-y-2">
               {closedSessions.map((s) => (
-                <Card key={s.id} onClick={() => navigate(`/sessions/${s.id}`)}>
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-gray-500">{s.title}</p>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">Closed</span>
+                <Card key={s.id}>
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => navigate(`/sessions/${s.id}`)}
+                    >
+                      <p className="font-semibold text-gray-500">{s.title}</p>
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">Closed</span>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setArchiveTarget(s); }}
+                          className="text-xs text-gray-400 hover:text-red-500 px-2 py-0.5 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Archive this session"
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -143,7 +202,36 @@ const GroupView = () => {
           </div>
         )}
 
-        <div className="mt-8">
+        {/* Archived Session History */}
+        {group.histories?.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+              Archived Sessions
+            </h3>
+            <div className="space-y-2">
+              {group.histories.map((h) => (
+                <Card key={h.id}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-500">{h.title}</p>
+                      {h.winnerName && (
+                        <p className="text-xs text-nom-600 font-medium mt-0.5">
+                          Top NOM: {h.winnerName}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg shrink-0">
+                      Archived
+                    </span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Members */}
+        <div className="mt-4">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
             Members ({group.members.length})
           </h3>
@@ -161,7 +249,47 @@ const GroupView = () => {
             ))}
           </div>
         </div>
+
+        {/* Danger zone */}
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-600 hover:bg-red-50"
+            onClick={() => { setLeaveDialog(true); setLeaveError(''); }}
+          >
+            Leave Group
+          </Button>
+        </div>
       </main>
+
+      {/* Leave Group confirmation */}
+      <ConfirmDialog
+        open={leaveDialog}
+        title="Leave this group?"
+        description={
+          leaveError
+            ? leaveError
+            : `You'll lose access to all of ${group?.name}'s sessions. You can rejoin with the invite code.`
+        }
+        confirmLabel="Leave Group"
+        danger
+        loading={leaving}
+        onCancel={() => { setLeaveDialog(false); setLeaveError(''); }}
+        onConfirm={handleLeaveGroup}
+      />
+
+      {/* Archive Session confirmation */}
+      <ConfirmDialog
+        open={!!archiveTarget}
+        title="Archive this session?"
+        description={`"${archiveTarget?.title}" will be compressed into a summary and all individual votes will be permanently deleted.`}
+        confirmLabel="Archive"
+        danger
+        loading={archiving}
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={handleArchiveSession}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 # NOMinEAT — Development Roadmap
 
 ## Current Status
-Full-stack MVP is deployed and live at [nomineat.vercel.app](https://nomineat.vercel.app). Session host ownership, real-time end-session sync, and a scored results leaderboard are all shipped.
+Full-stack MVP is deployed and live at [nomineat.vercel.app](https://nomineat.vercel.app). Phases 1–7 are complete: session host ownership, real-time sync, scored leaderboard, leave group, session archiving with `SessionHistory`, and login by email or username are all shipped.
 
 ---
 
@@ -82,18 +82,27 @@ Full-stack MVP is deployed and live at [nomineat.vercel.app](https://nomineat.ve
 
 ---
 
-## Phase 7: Polish & Real-time (Next)
+## Phase 7: Group Management & Data Housekeeping (Complete)
+
+- [x] **Login with email or username** — single `identifier` field; backend detects `@` and queries by email or username with field-specific error messages
+- [x] **Leave Group** — `DELETE /groups/:id/leave` removes the member; blocked with a clear error if they are the sole admin. Confirmation dialog in Group View
+- [x] **Archive closed sessions** — `DELETE /voting/sessions/:id` (host or admin only); creates a `SessionHistory` summary record then hard-deletes the `VotingSession`, `Option`, and `Vote` rows to reclaim space
+- [x] **SessionHistory model** — lightweight archive table (`groupId`, `originalId`, `title`, `winnerName`, `winnerScore`, `results` JSON, `archivedAt`); surfaced in Group View as "Archived Sessions"
+- [x] **ConfirmDialog component** — reusable Tailwind modal with `danger` and `loading` props; used for both Leave Group and Archive Session flows
+
+---
+
+## Phase 8: Polish & Real-time (Next)
 
 - [ ] **Full Supabase Realtime** — replace polling with a Supabase channel subscription so live vote counts update instantly for all users without page refreshes
 - [ ] **Toast notifications** — replace inline error text with dismissible toast banners
 - [ ] **Profile page** (`/profile`) — show username, email, account info, logout button
-- [ ] **Session history** — list past closed sessions on Group View with their Top NOM winners
 - [ ] **Guard: empty session** — prevent ending a session with 0 nominees
 - [ ] **Drag-to-reorder NOMinees** — let users manually reorder their ballot before voting ends
 
 ---
 
-## Phase 8: React Native Mobile App
+## Phase 9: React Native Mobile App
 
 - Same Express API — zero backend changes needed
 - `react-navigation` for bottom tab navigation

@@ -155,17 +155,19 @@ All routes are prefixed with `/api`.
 |---|---|---|---|
 | GET | `/health` | No | DB connectivity check |
 | POST | `/auth/register` | No | Create account |
-| POST | `/auth/login` | No | Get JWT |
+| POST | `/auth/login` | No | Get JWT — accepts email or username via `identifier` field |
 | GET | `/auth/me` | Yes | Current user |
 | POST | `/groups` | Yes | Create group |
 | GET | `/groups` | Yes | List my groups |
-| GET | `/groups/:id` | Yes | Group detail + members + sessions |
+| GET | `/groups/:id` | Yes | Group detail + members + sessions + archived histories |
 | POST | `/groups/join` | Yes | Join via invite code |
+| DELETE | `/groups/:id/leave` | Yes | Leave a group (blocked if last admin) |
 | POST | `/voting/groups/:groupId/sessions` | Yes | Start voting session (caller becomes host) |
 | GET | `/voting/sessions/:sessionId` | Yes | Session detail + votes + host info |
 | POST | `/voting/sessions/:sessionId/nominate` | Yes | Add a NOM |
 | POST | `/voting/sessions/:sessionId/options/:optionId/vote` | Yes | Cast / update / remove vote |
 | PATCH | `/voting/sessions/:sessionId/close` | Yes (host only) | End session, reveal winner + scores |
+| DELETE | `/voting/sessions/:sessionId` | Yes (host or admin) | Archive closed session — saves summary, purges raw rows |
 
 ---
 

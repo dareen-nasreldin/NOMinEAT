@@ -45,21 +45,23 @@ export const register = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
-  }
+  const { identifier, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const byEmail = identifier.includes('@');
+    const user = byEmail
+      ? await prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
+      : await prisma.user.findUnique({ where: { username: identifier } });
 
     if (!user) {
-      return res.status(401).json({ error: 'No account found with that email address' });
+      return res.status(401).json({
+        error: byEmail
+          ? 'No account found with that email address'
+          : 'No account found with that username',
+      });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-
     if (!valid) {
       return res.status(401).json({ error: 'Incorrect password' });
     }

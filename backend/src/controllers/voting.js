@@ -160,6 +160,63 @@ export const castVote = async (req, res) => {
   }
 };
 
+export const archiveSession = async (req, res) => {
+  const { sessionId } = req.params;
+
+  try {
+    const session = await prisma.votingSession.findUnique({
+      where: { id: sessionId },
+      include: { options: { include: { votes: true } } },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    if (session.status !== 'CLOSED') {
+      return res.status(400).json({ error: 'Only closed sessions can be archived' });
+    }
+
+    const membership = await requireGroupMembership(req.user.userId, session.groupId);
+    const isHost = session.hostId === req.user.userId;
+    const isAdmin = membership?.role === 'ADMIN';
+
+    if (!isHost && !isAdmin) {
+      return res.status(403).json({ error: 'Only the session host or a group admin can archive this session' });
+    }
+
+    const results = session.options
+      .map((opt) => ({
+        name: opt.name,
+        type: opt.type,
+        score: opt.votes.reduce((sum, v) => sum + (v.value === 1 ? 2 : -4), 0),
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const winner = results[0] ?? null;
+
+    await prisma.$transaction([
+      prisma.sessionHistory.create({
+        data: {
+          groupId: session.groupId,
+          originalId: session.id,
+          title: session.title,
+          winnerName: winner?.name ?? null,
+          winnerScore: winner?.score ?? 0,
+          results,
+        },
+      }),
+      prisma.vote.deleteMany({ where: { sessionId } }),
+      prisma.option.deleteMany({ where: { sessionId } }),
+      prisma.votingSession.delete({ where: { id: sessionId } }),
+    ]);
+
+    res.json({ message: 'Session archived successfully' });
+  } catch (err) {
+    console.error('archiveSession error:', err);
+    res.status(500).json({ error: 'Failed to archive session' });
+  }
+};
+
 export const closeSession = async (req, res) => {
   const { sessionId } = req.params;
 

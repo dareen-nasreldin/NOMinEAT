@@ -18,12 +18,13 @@ model User {
 }
 
 model Group {
-  id         String          @id @default(uuid())
+  id         String           @id @default(uuid())
   name       String
-  inviteCode String          @unique
-  createdAt  DateTime        @default(now())
+  inviteCode String           @unique
+  createdAt  DateTime         @default(now())
   members    GroupMember[]
   sessions   VotingSession[]
+  histories  SessionHistory[]
 }
 
 model GroupMember {
@@ -72,4 +73,16 @@ model Vote {
   option    Option        @relation(fields: [optionId], references: [id])
 
   @@unique([userId, sessionId, optionId])
+}
+
+model SessionHistory {
+  id          String   @id @default(uuid())
+  groupId     String
+  originalId  String   // the VotingSession id that was archived
+  title       String
+  winnerName  String?
+  winnerScore Int      @default(0)
+  results     Json     // [{name, type, score}] sorted by score desc
+  archivedAt  DateTime @default(now())
+  group       Group    @relation(fields: [groupId], references: [id])
 }

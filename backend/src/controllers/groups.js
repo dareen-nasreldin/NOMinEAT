@@ -120,6 +120,7 @@ export const getGroupById = async (req, res) => {
       include: {
         members: { include: { user: { select: { id: true, username: true } } } },
         sessions: { orderBy: { createdAt: 'desc' } },
+        histories: { orderBy: { archivedAt: 'desc' } },
       },
     });
 
@@ -131,5 +132,36 @@ export const getGroupById = async (req, res) => {
   } catch (err) {
     console.error('getGroupById error:', err);
     res.status(500).json({ error: 'Failed to fetch group' });
+  }
+};
+
+export const leaveGroup = async (req, res) => {
+  const { groupId } = req.params;
+  const userId = req.user.userId;
+
+  try {
+    const membership = await prisma.groupMember.findUnique({
+      where: { userId_groupId: { userId, groupId } },
+    });
+
+    if (!membership) {
+      return res.status(404).json({ error: 'You are not a member of this group' });
+    }
+
+    if (membership.role === 'ADMIN') {
+      const adminCount = await prisma.groupMember.count({ where: { groupId, role: 'ADMIN' } });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          error: 'You are the only admin. Promote another member or delete the group before leaving.',
+        });
+      }
+    }
+
+    await prisma.groupMember.delete({ where: { userId_groupId: { userId, groupId } } });
+
+    res.json({ message: 'You have left the group' });
+  } catch (err) {
+    console.error('leaveGroup error:', err);
+    res.status(500).json({ error: 'Failed to leave group' });
   }
 };

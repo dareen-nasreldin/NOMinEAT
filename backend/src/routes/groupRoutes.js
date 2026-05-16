@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { createGroup, joinGroup, getMyGroups, getGroupById } from '../controllers/groups.js';
+import { createGroup, joinGroup, getMyGroups, getGroupById, leaveGroup } from '../controllers/groups.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import validate from '../middleware/validate.js';
 
@@ -25,5 +25,6 @@ router.post(
 );
 
 router.get('/:groupId', getGroupById);
+router.delete('/:groupId/leave', leaveGroup);
 
 export default router;

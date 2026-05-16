@@ -5,7 +5,7 @@ import Button from '../components/Button';
 
 const Login = () => {
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [form, setForm] = useState({ username: '', identifier: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
@@ -22,7 +22,7 @@ const Login = () => {
     setError('');
     try {
       if (mode === 'login') {
-        await login(form.email, form.password);
+        await login(form.identifier, form.password);
       } else {
         await register(form.username, form.email, form.password);
       }
@@ -38,6 +38,11 @@ const Login = () => {
     }
   };
 
+  const switchMode = (next) => {
+    setMode(next);
+    setError('');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-nom-50 to-orange-100 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -51,7 +56,7 @@ const Login = () => {
         <div className="bg-white rounded-3xl shadow-lg p-6">
           <div className="flex rounded-xl bg-gray-100 p-1 mb-6">
             <button
-              onClick={() => setMode('login')}
+              onClick={() => switchMode('login')}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'login' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
               }`}
@@ -59,7 +64,7 @@ const Login = () => {
               Log in
             </button>
             <button
-              onClick={() => setMode('register')}
+              onClick={() => switchMode('register')}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'register' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
               }`}
@@ -82,18 +87,38 @@ const Login = () => {
                 />
               </div>
             )}
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Email</label>
-              <input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                required
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-nom-400"
-              />
-            </div>
+
+            {mode === 'login' ? (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Email or Username
+                </label>
+                <input
+                  name="identifier"
+                  type="text"
+                  value={form.identifier}
+                  onChange={handleChange}
+                  placeholder="nom_master or you@example.com"
+                  required
+                  autoComplete="username"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-nom-400"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Email</label>
+                <input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-nom-400"
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Password</label>
               <input
