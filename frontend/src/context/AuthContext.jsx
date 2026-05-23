@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
     const stored = localStorage.getItem('nom_user');
     return stored ? JSON.parse(stored) : null;
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!localStorage.getItem('nom_token'));
 
   useEffect(() => {
     const token = localStorage.getItem('nom_token');

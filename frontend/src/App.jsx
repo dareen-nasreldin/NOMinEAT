@@ -8,7 +8,7 @@ import AuthCallback from './pages/AuthCallback';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (!user && loading) return null;
   return user ? children : <Navigate to="/login" replace />;
 };
 
