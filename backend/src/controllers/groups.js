@@ -119,7 +119,10 @@ export const getGroupById = async (req, res) => {
       where: { id: groupId },
       include: {
         members: { include: { user: { select: { id: true, username: true } } } },
-        sessions: { orderBy: { createdAt: 'desc' } },
+        sessions: {
+          orderBy: { createdAt: 'desc' },
+          include: { options: { include: { votes: true } } },
+        },
         histories: { orderBy: { archivedAt: 'desc' } },
       },
     });
@@ -128,7 +131,15 @@ export const getGroupById = async (req, res) => {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    res.json({ group: { ...group, myRole: membership.role } });
+    const sessions = group.sessions.map((s) => {
+      if (s.status !== 'CLOSED' || s.options.length === 0) return s;
+      const top = s.options
+        .map((opt) => ({ name: opt.name, score: opt.votes.reduce((sum, v) => sum + (v.value === 1 ? 2 : -4), 0) }))
+        .sort((a, b) => b.score - a.score)[0];
+      return { ...s, winnerName: top?.name ?? null };
+    });
+
+    res.json({ group: { ...group, sessions, myRole: membership.role } });
   } catch (err) {
     console.error('getGroupById error:', err);
     res.status(500).json({ error: 'Failed to fetch group' });

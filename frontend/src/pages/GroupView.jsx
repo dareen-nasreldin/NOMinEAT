@@ -185,6 +185,9 @@ const GroupView = () => {
                       onClick={() => navigate(`/sessions/${s.id}`)}
                     >
                       <p className="font-semibold text-gray-500">{s.title}</p>
+                      {s.winnerName && (
+                        <p className="text-xs text-nom-600 font-medium mt-0.5">Top NOM: {s.winnerName}</p>
+                      )}
                     </button>
                     {(isAdmin || s.hostId === user?.id) && (
                       <button
