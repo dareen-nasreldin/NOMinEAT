@@ -6,7 +6,8 @@ import {
   nominateOption,
   castVote,
   closeSession,
-  archiveSession,
+  deleteSession,
+  deleteHistory,
 } from '../controllers/voting.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import validate from '../middleware/validate.js';
@@ -24,7 +25,8 @@ router.post(
 
 router.get('/sessions/:sessionId', getSession);
 router.patch('/sessions/:sessionId/close', closeSession);
-router.delete('/sessions/:sessionId', archiveSession);
+router.delete('/sessions/:sessionId', deleteSession);
+router.delete('/history/:historyId', deleteHistory);
 
 router.post(
   '/sessions/:sessionId/nominate',

@@ -23,9 +23,9 @@ const GroupView = () => {
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState('');
 
-  // Archive session dialog
-  const [archiveTarget, setArchiveTarget] = useState(null); // session object
-  const [archiving, setArchiving] = useState(false);
+  // Delete dialog — type: 'session' | 'history'
+  const [deleteTarget, setDeleteTarget] = useState(null); // { type, id, title }
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.get(`/groups/${groupId}`)
@@ -59,23 +59,23 @@ const GroupView = () => {
     }
   };
 
-  const handleArchiveSession = async () => {
-    if (!archiveTarget) return;
-    setArchiving(true);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const res = await api.delete(`/voting/sessions/${archiveTarget.id}`);
-      const newHistory = res.data.history;
-      setGroup((g) => ({
-        ...g,
-        sessions: g.sessions.filter((s) => s.id !== archiveTarget.id),
-        histories: [newHistory, ...(g.histories ?? [])],
-      }));
-      setArchiveTarget(null);
+      if (deleteTarget.type === 'session') {
+        await api.delete(`/voting/sessions/${deleteTarget.id}`);
+        setGroup((g) => ({ ...g, sessions: g.sessions.filter((s) => s.id !== deleteTarget.id) }));
+      } else {
+        await api.delete(`/voting/history/${deleteTarget.id}`);
+        setGroup((g) => ({ ...g, histories: g.histories.filter((h) => h.id !== deleteTarget.id) }));
+      }
+      setDeleteTarget(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to archive session');
-      setArchiveTarget(null);
+      setError(err.response?.data?.error || 'Failed to delete');
+      setDeleteTarget(null);
     } finally {
-      setArchiving(false);
+      setDeleting(false);
     }
   };
 
@@ -100,6 +100,7 @@ const GroupView = () => {
   const isAdmin = group.myRole === 'ADMIN';
   const activeSessions = group.sessions.filter((s) => s.status === 'ACTIVE');
   const closedSessions = group.sessions.filter((s) => s.status === 'CLOSED');
+  const hasArchived = closedSessions.length > 0 || (group.histories?.length ?? 0) > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -169,11 +170,11 @@ const GroupView = () => {
           )}
         </div>
 
-        {/* Closed Sessions (not yet archived) */}
-        {closedSessions.length > 0 && (
+        {/* Archived Sessions */}
+        {hasArchived && (
           <div className="mb-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Past Sessions
+              Archived Sessions
             </h3>
             <div className="space-y-2">
               {closedSessions.map((s) => (
@@ -185,33 +186,18 @@ const GroupView = () => {
                     >
                       <p className="font-semibold text-gray-500">{s.title}</p>
                     </button>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">Closed</span>
-                      {isAdmin && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setArchiveTarget(s); }}
-                          className="text-xs text-gray-400 hover:text-red-500 px-2 py-0.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Archive this session"
-                        >
-                          Archive
-                        </button>
-                      )}
-                    </div>
+                    {(isAdmin || s.hostId === user?.id) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'session', id: s.id, title: s.title }); }}
+                        className="text-xs text-gray-400 hover:text-red-500 px-2 py-0.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </Card>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Archived Session History */}
-        {group.histories?.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Archived Sessions
-            </h3>
-            <div className="space-y-2">
-              {group.histories.map((h) => (
+              {group.histories?.map((h) => (
                 <Card key={h.id}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -222,9 +208,14 @@ const GroupView = () => {
                         </p>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg shrink-0">
-                      Archived
-                    </span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setDeleteTarget({ type: 'history', id: h.id, title: h.title })}
+                        className="text-xs text-gray-400 hover:text-red-500 px-2 py-0.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -281,16 +272,16 @@ const GroupView = () => {
         onConfirm={handleLeaveGroup}
       />
 
-      {/* Archive Session confirmation */}
+      {/* Delete Session / History confirmation */}
       <ConfirmDialog
-        open={!!archiveTarget}
-        title="Archive this session?"
-        description={`"${archiveTarget?.title}" will be compressed into a summary and all individual votes will be permanently deleted.`}
-        confirmLabel="Archive"
+        open={!!deleteTarget}
+        title="Delete this session?"
+        description={`"${deleteTarget?.title}" will be permanently deleted and cannot be recovered.`}
+        confirmLabel="Delete"
         danger
-        loading={archiving}
-        onCancel={() => setArchiveTarget(null)}
-        onConfirm={handleArchiveSession}
+        loading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
       />
     </div>
   );
