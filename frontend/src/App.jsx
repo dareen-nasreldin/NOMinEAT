@@ -6,15 +6,21 @@ import GroupView from './pages/GroupView';
 import VotingRoom from './pages/VotingRoom';
 import AuthCallback from './pages/AuthCallback';
 
+const Spinner = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-nom-200 border-t-nom-500 rounded-full animate-spin" />
+  </div>
+);
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (!user && loading) return null;
+  if (loading && !user) return <Spinner />;
   return user ? children : <Navigate to="/login" replace />;
 };
 
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading && !user) return <Spinner />;
   return user ? <Navigate to="/dashboard" replace /> : children;
 };
 
