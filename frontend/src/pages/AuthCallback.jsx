@@ -9,33 +9,12 @@ const AuthCallback = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const handle = async () => {
+    let handled = false;
+
+    const finish = async (session) => {
+      if (handled) return;
+      handled = true;
       try {
-        const code = new URL(window.location.href).searchParams.get('code');
-
-        let session = null;
-
-        if (code) {
-          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            setError(`Code exchange failed: ${exchangeError.message}`);
-            return;
-          }
-          session = data.session;
-        } else {
-          const { data, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError) {
-            setError(`Session error: ${sessionError.message}`);
-            return;
-          }
-          session = data.session;
-        }
-
-        if (!session) {
-          setError('No session returned from Google. Please try again.');
-          return;
-        }
-
         await loginWithGoogle(session.access_token);
         navigate('/dashboard');
       } catch (err) {
@@ -43,18 +22,34 @@ const AuthCallback = () => {
       }
     };
 
-    handle();
+    // Primary: fires when the client processes the OAuth tokens from the URL hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) finish(session);
+    });
+
+    // Fallback: session may already be set if client processed the hash synchronously
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) finish(session);
+    });
+
+    // Timeout: if nothing fires after 8s, show an error
+    const timeout = setTimeout(() => {
+      if (!handled) setError('Sign-in timed out. Please try again.');
+    }, 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow p-6 max-w-sm w-full text-center space-y-4">
-          <p className="text-red-500 text-sm font-medium">{error}</p>
-          <button
-            onClick={() => navigate('/login')}
-            className="text-sm text-nom-500 hover:underline"
-          >
+      <div className="min-h-screen bg-red-50 flex items-center justify-center px-4">
+        <div className="bg-white border border-red-200 rounded-2xl shadow p-6 max-w-sm w-full space-y-3">
+          <p className="text-red-600 font-bold text-sm">Sign-in failed</p>
+          <p className="text-red-500 text-xs break-words">{error}</p>
+          <button onClick={() => navigate('/login')} className="text-sm text-nom-500 hover:underline">
             Back to login
           </button>
         </div>
