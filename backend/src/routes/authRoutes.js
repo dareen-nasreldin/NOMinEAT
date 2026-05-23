@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import rateLimit from 'express-rate-limit';
-import { register, login, getMe } from '../controllers/auth.js';
+import { register, login, getMe, googleAuth } from '../controllers/auth.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import validate from '../middleware/validate.js';
 
@@ -28,6 +28,7 @@ const loginRules = [
 
 router.post('/register', authLimiter, registerRules, validate, register);
 router.post('/login', authLimiter, loginRules, validate, login);
+router.post('/google', authLimiter, googleAuth);
 router.get('/me', authMiddleware, getMe);
 
 export default router;

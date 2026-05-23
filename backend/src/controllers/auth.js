@@ -1,7 +1,13 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import supabase from '../lib/supabase.js';
+
 const SALT_ROUNDS = 12;
+const JWT_EXPIRY = process.env.JWT_EXPIRES_IN || '30d';
+
+const signToken = (user) =>
+  jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRY });
 
 export const register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -31,12 +37,7 @@ export const register = async (req, res) => {
       select: { id: true, username: true, email: true, createdAt: true },
     });
 
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
+    const token = signToken(user);
     res.status(201).json({ token, user });
   } catch (err) {
     console.error('register error:', err);
@@ -61,24 +62,66 @@ export const login = async (req, res) => {
       });
     }
 
+    if (!user.passwordHash) {
+      return res.status(401).json({ error: 'This account uses Google sign-in — please use the Google button to log in' });
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: 'Incorrect password' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
-
-    res.json({
-      token,
-      user: { id: user.id, username: user.username, email: user.email, createdAt: user.createdAt },
-    });
+    const token = signToken(user);
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, createdAt: user.createdAt } });
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  const { access_token } = req.body;
+  if (!access_token) {
+    return res.status(400).json({ error: 'access_token is required' });
+  }
+
+  try {
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(access_token);
+    if (error || !supabaseUser) {
+      return res.status(401).json({ error: 'Invalid Google token' });
+    }
+
+    const email = supabaseUser.email;
+    if (!email) {
+      return res.status(400).json({ error: 'Google account has no email address' });
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      const displayName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || '';
+      const base = displayName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 20) || email.split('@')[0].slice(0, 20);
+
+      let username = base;
+      let attempt = 0;
+      while (await prisma.user.findUnique({ where: { username } })) {
+        attempt++;
+        username = `${base}${attempt}`;
+      }
+
+      user = await prisma.user.create({ data: { username, email, passwordHash: null } });
+    }
+
+    const token = signToken(user);
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, createdAt: user.createdAt } });
+  } catch (err) {
+    console.error('googleAuth error:', err);
+    res.status(500).json({ error: 'Google sign-in failed' });
   }
 };
 

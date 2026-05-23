@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import GroupView from './pages/GroupView';
 import VotingRoom from './pages/VotingRoom';
+import AuthCallback from './pages/AuthCallback';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -20,6 +21,7 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+    <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
     <Route path="/groups/:groupId" element={<ProtectedRoute><GroupView /></ProtectedRoute>} />
     <Route path="/sessions/:sessionId" element={<ProtectedRoute><VotingRoom /></ProtectedRoute>} />
