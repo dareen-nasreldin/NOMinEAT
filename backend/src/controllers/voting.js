@@ -194,7 +194,7 @@ export const archiveSession = async (req, res) => {
 
     const winner = results[0] ?? null;
 
-    await prisma.$transaction([
+    const [history] = await prisma.$transaction([
       prisma.sessionHistory.create({
         data: {
           groupId: session.groupId,
@@ -210,7 +210,7 @@ export const archiveSession = async (req, res) => {
       prisma.votingSession.delete({ where: { id: sessionId } }),
     ]);
 
-    res.json({ message: 'Session archived successfully' });
+    res.json({ message: 'Session archived successfully', history });
   } catch (err) {
     console.error('archiveSession error:', err);
     res.status(500).json({ error: 'Failed to archive session' });

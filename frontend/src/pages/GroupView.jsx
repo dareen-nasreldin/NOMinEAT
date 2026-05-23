@@ -63,10 +63,12 @@ const GroupView = () => {
     if (!archiveTarget) return;
     setArchiving(true);
     try {
-      await api.delete(`/voting/sessions/${archiveTarget.id}`);
+      const res = await api.delete(`/voting/sessions/${archiveTarget.id}`);
+      const newHistory = res.data.history;
       setGroup((g) => ({
         ...g,
         sessions: g.sessions.filter((s) => s.id !== archiveTarget.id),
+        histories: [newHistory, ...(g.histories ?? [])],
       }));
       setArchiveTarget(null);
     } catch (err) {
