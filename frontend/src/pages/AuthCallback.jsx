@@ -24,7 +24,7 @@ const AuthCallback = () => {
 
     // Primary: fires when the client processes the OAuth tokens from the URL hash
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) finish(session);
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) finish(session);
     });
 
     // Fallback: session may already be set if client processed the hash synchronously

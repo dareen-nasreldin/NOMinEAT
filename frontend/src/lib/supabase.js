@@ -7,6 +7,13 @@ if (!url || !key) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — Google sign-in will not work');
 }
 
-const supabase = createClient(url ?? 'https://placeholder.supabase.co', key ?? 'placeholder');
+const supabase = createClient(url ?? 'https://placeholder.supabase.co', key ?? 'placeholder', {
+  auth: {
+    flowType: 'implicit',
+    detectSessionInUrl: true,
+    persistSession: true,
+    storage: window.localStorage,
+  },
+});
 
 export default supabase;
