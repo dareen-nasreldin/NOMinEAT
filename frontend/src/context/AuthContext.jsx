@@ -62,8 +62,7 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = async (accessToken) => {
     const res = await api.post('/auth/google', { access_token: accessToken });
-    localStorage.setItem('nom_token', res.data.token);
-    localStorage.setItem('nom_user', JSON.stringify(res.data.user));
+    persistSession(res.data.token, res.data.user);
     setUser(res.data.user);
     return res.data.user;
   };
