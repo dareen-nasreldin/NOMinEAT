@@ -33,7 +33,12 @@ const Login = () => {
       if (!err.response) {
         setError('Cannot reach the server — please check your connection and try again');
       } else {
-        setError(err.response.data?.error || 'Something went wrong');
+        const data = err.response.data?.error;
+        const message =
+          typeof data === 'string'
+            ? data
+            : (data && typeof data === 'object' && (data.message || data.code)) || 'Something went wrong';
+        setError(message);
       }
     } finally {
       setLoading(false);

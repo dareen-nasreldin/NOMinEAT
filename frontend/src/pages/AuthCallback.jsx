@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import supabase from '../lib/supabase';
 
+// Always resolve an error to a string. A backend/platform 500 can return
+// `{ error: { code, message } }`; rendering that object directly throws
+// React error #31 and white-screens the page.
+const toErrorMessage = (err, fallback = 'Sign-in failed. Please try again.') => {
+  const data = err?.response?.data?.error;
+  if (typeof data === 'string') return data;
+  if (data && typeof data === 'object') return data.message || data.code || fallback;
+  return err?.message || fallback;
+};
+
 const AuthCallback = () => {
   const navigate = useNavigate();
   const { loginWithGoogle } = useAuth();
@@ -18,7 +28,7 @@ const AuthCallback = () => {
         await loginWithGoogle(session.access_token);
         navigate('/dashboard');
       } catch (err) {
-        setError(err?.response?.data?.error || err?.message || 'Sign-in failed. Please try again.');
+        setError(toErrorMessage(err));
       }
     };
 

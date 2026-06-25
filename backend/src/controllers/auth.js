@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
-import supabase from '../lib/supabase.js';
+import supabase, { isSupabaseConfigured } from '../lib/supabase.js';
 
 const SALT_ROUNDS = 12;
 const JWT_EXPIRY = process.env.JWT_EXPIRES_IN || '30d';
@@ -83,6 +83,10 @@ export const googleAuth = async (req, res) => {
   const { access_token } = req.body;
   if (!access_token) {
     return res.status(400).json({ error: 'access_token is required' });
+  }
+
+  if (!isSupabaseConfigured) {
+    return res.status(503).json({ error: 'Google sign-in is not configured on the server' });
   }
 
   try {
