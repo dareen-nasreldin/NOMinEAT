@@ -48,6 +48,7 @@ backend/src/generated/
 
 # ── Claude Code ───────────────────────────────────────────────
 .claude/
+.playwright-mcp/
 
 # ── Skills ────────────────────────────────────────────────────
 skills-lock.json
