@@ -223,7 +223,7 @@ All commits must follow: `type(scope): short summary`
 | `perf` | Performance |
 | `ci` | CI/CD |
 
-Rules: imperative mood, 72-char subject limit, no period, no emoji in subject.
+Rules: imperative mood, 72-char subject limit, no period, no emoji in subject. Do not add `Co-Authored-By` trailers (or any AI attribution) to commit messages.
 
 Examples:
 ```
